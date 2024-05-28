@@ -1,8 +1,0 @@
-name: vcfanno
-channels:
-  - bioconda
-  - conda-forge
-  - defaults
-dependencies:
-  - vcfanno=0.3.3=h9ee0642_0
-prefix: /storage/home/hcoda1/3/apfennig3/.conda/envs/vcfanno
