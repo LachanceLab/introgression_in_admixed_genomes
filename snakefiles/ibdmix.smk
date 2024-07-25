@@ -310,7 +310,38 @@ use rule calculate_introgressed_coverage_per_window_and_individual as calculate_
         stepsize=stepsize
     params:
         bedtools = bedtools_path
+       
+rule get_unique_segment_counts:
+    input:
+        results_path + "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_" +\
+        str(int(minimum_length / 1000)) + "kb_" + str(lod_threshold) +\
+        "LOD.bed"
+    output:
+        results_path + "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_" +\
+        str(int(minimum_length / 1000)) + "kb_" + str(lod_threshold) +\
+        "LOD_unique_segment_counts.bed"
+    params:
+        bedtools = bedtools_path
+    wildcard_constraints:
+        archaic_genome="|".join(neanderthal_genomes), # restrict wildcard.archaic_genome to Neanderthal genomes
+    shell:
+        "cat {input} | sort -k1,1 -k2,2n -k3,3n -k6 | "
+        "{params.bedtools} groupby -g 1,2,3,6 -c 5 -o count_distinct | sort -k1,1 -k2,2n > {output}"
 
+use rule get_unique_segment_counts as get_unique_segment_counts_afr_masked with:
+    input:
+        results_path + "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_" +\
+        str(int(minimum_length / 1000)) + "kb_" + str(lod_threshold) +\
+        "LOD_afr_masked.bed"
+    output:
+        results_path + "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_" +\
+        str(int(minimum_length / 1000)) + "kb_" + str(lod_threshold) +\
+        "LOD_afr_masked_unique_segment_counts.bed"
+    params:
+        bedtools = bedtools_path
+    wildcard_constraints:
+        archaic_genome="|".join(neanderthal_genomes), # restrict wildcard.archaic_genome to Neanderthal genomes
+        
 use rule split_introgressed_coverage_per_window_and_superpopulation as split_introgressed_coverage_per_window_and_superpopulation_all_segments with:
     input:
         ibdmix=results_path + "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_" +\

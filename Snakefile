@@ -208,17 +208,23 @@ rule all:
         expand(results_path + 'ibdmix_{archaic_genome}/iDAT_scores_{chr}.bed', chr=chromosomes, archaic_genome=neanderthal_genomes),
         expand(results_path + 'ibdmix_{archaic_genome}/standardized_iDAT_scores.bed', archaic_genome=neanderthal_genomes),
         expand(results_path +
-               "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_50kb_4.0LOD_afr_masked_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}_pvalues.bed",
-               archaic_genome=neanderthal_genomes, windowsize=windowsize, stepsize=stepsize),
+               "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_{minimum_length}kb_{lod_threshold}LOD_afr_masked_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}_pvalues.bed",
+               archaic_genome=neanderthal_genomes, windowsize=windowsize, stepsize=stepsize, lod_threshold=str(lod_threshold),
+               minimum_length=str(int(minimum_length / 1000))),
         expand(results_path +
-               "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_50kb_4.0LOD_afr_masked_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}_expectations.bed",
-               archaic_genome=neanderthal_genomes, windowsize=windowsize, stepsize=stepsize),
+               "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_{minimum_length}kb_{lod_threshold}LOD_afr_masked_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}_expectations.bed",
+               archaic_genome=neanderthal_genomes, windowsize=windowsize, stepsize=stepsize, lod_threshold=str(lod_threshold),
+               minimum_length=str(int(minimum_length / 1000))),
         expand(results_path + "ibdmix_{archaic_genome}/{super_population}_introgression_frequencies_and_rank_callable_windows_afr_masked.bed",
                archaic_genome=neanderthal_genomes,super_population=['AMR', 'EUR', "EAS"]),
         expand(results_path + "ibdmix_{archaic_genome}/AMR_novel_introgression_deserts_iDAT_annotated.bed",
                archaic_genome=neanderthal_genomes),
         expand(results_path + "ibdmix_{archaic_genome}/AMR_introgression_deserts_new_control_segments_{n}_iDAT_annotated.bed",
                archaic_genome=neanderthal_genomes, n=np.arange(0, bootstrap_reps)),
+        expand(results_path + "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_{minimum_length}kb_{lod_threshold}LOD_afr_masked_unique_segment_counts.bed",
+               archaic_genome=neanderthal_genomes, lod_threshold=str(lod_threshold), minimum_length=str(int(minimum_length / 1000))),
+        expand(results_path + "ibdmix_{archaic_genome}/ibdmix_results_masked_denisovan_combined_{minimum_length}kb_{lod_threshold}LOD_unique_segment_counts.bed",
+               archaic_genome=neanderthal_genomes, lod_threshold=str(lod_threshold), minimum_length=str(int(minimum_length / 1000))),
         #results_path + "nucleotide_diversity_per_10kb.bed.gz",
         # # also run Skovs HMMIX
         # results_path + "introgressed_segments_hmmix.bed",
@@ -290,29 +296,29 @@ rule all:
         # expand(results_path + ldsc_path + '{archaic_genome}.heritability_estimates.txt', archaic_genome=neanderthal_genomes),
         # ## simulations and variant dating
         # # need to create 'data_path + AA_sample_ids.txt' that contains as many line as used in the actual analysis
-        expand(simulations_path + "ALL_chromosomes_replicate_{n}_ancestry_proportions-{M}.{ext}",
-               n=n_replicates, M=M, ext=['3.Q', 'fam']),
-        expand(simulations_path + "AMR_introgression_deserts_replicate_{n}.bed", n=n_replicates),
-        expand(simulations_path + "AMR_introgression_frequencies_and_rank_callable_windows_replicate_{n}.bed",
-               n=n_replicates),
-        expand(simulations_path + "AMR_novel_introgression_deserts_replicate_{n}.bed", n=n_replicates),
-        expand(simulations_path + "AMR_novel_introgression_deserts_pvalues_replicate_{n}.bed", n=n_replicates),
-        expand(simulations_path + "AMR_putatively_selected_neanderthal_segments" +
-               "_replicate_{n}_window{windowsize}_s_{stepsize}.bed",
-               n=n_replicates, windowsize=windowsize, stepsize=stepsize),
-        expand(simulations_path + "neanderthal_introgressed_segments_masked_denisovan_replicate_{n}_afr_masked" +
-               "_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}_pvalues.bed",
-               n=n_replicates, windowsize=windowsize, stepsize=stepsize),
-        expand(simulations_path + "neanderthal_introgressed_segments_masked_denisovan_replicate_{n}_afr_masked" +
-               "_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}_expectations.bed",
-               n=n_replicates, windowsize=windowsize, stepsize=stepsize),
-        expand(simulations_path + "neanderthal_introgressed_segments_masked_denisovan_replicate_{n}_afr_masked" +
-               "_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}.bed",
-               windowsize=windowsize, n=n_replicates, stepsize=stepsize),
-        expand(simulations_path + 'neanderthal_introgressed_segments_masked_denisovan_replicate_{n}_afr_masked.bed',
-               n=n_replicates),
-        expand(simulations_path +  "ALL_chromosomes_replicate_{n}_ancestry_proportions-{M}.{ext}",
-               n=n_replicates, M=M, ext=['3.Q', 'fam']),
+        #expand(simulations_path + "ALL_chromosomes_replicate_{n}_ancestry_proportions-{M}.{ext}",
+        #       n=n_replicates, M=M, ext=['3.Q', 'fam']),
+        #expand(simulations_path + "AMR_introgression_deserts_replicate_{n}.bed", n=n_replicates),
+        #expand(simulations_path + "AMR_introgression_frequencies_and_rank_callable_windows_replicate_{n}.bed",
+        #       n=n_replicates),
+        #expand(simulations_path + "AMR_novel_introgression_deserts_replicate_{n}.bed", n=n_replicates),
+        #expand(simulations_path + "AMR_novel_introgression_deserts_pvalues_replicate_{n}.bed", n=n_replicates),
+        #expand(simulations_path + "AMR_putatively_selected_neanderthal_segments" +
+        #       "_replicate_{n}_window{windowsize}_s_{stepsize}.bed",
+        #       n=n_replicates, windowsize=windowsize, stepsize=stepsize),
+        #expand(simulations_path + "neanderthal_introgressed_segments_masked_denisovan_replicate_{n}_afr_masked" +
+        #       "_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}_pvalues.bed",
+        #       n=n_replicates, windowsize=windowsize, stepsize=stepsize),
+        #expand(simulations_path + "neanderthal_introgressed_segments_masked_denisovan_replicate_{n}_afr_masked" +
+        #       "_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}_expectations.bed",
+        #       n=n_replicates, windowsize=windowsize, stepsize=stepsize),
+        #expand(simulations_path + "neanderthal_introgressed_segments_masked_denisovan_replicate_{n}_afr_masked" +
+        #       "_coverage_per_individual_and_per_window{windowsize}_s_{stepsize}.bed",
+        #       windowsize=windowsize, n=n_replicates, stepsize=stepsize),
+        #expand(simulations_path + 'neanderthal_introgressed_segments_masked_denisovan_replicate_{n}_afr_masked.bed',
+        #       n=n_replicates),
+        #expand(simulations_path +  "ALL_chromosomes_replicate_{n}_ancestry_proportions-{M}.{ext}",
+        #       n=n_replicates, M=M, ext=['3.Q', 'fam']),
         # #expand(arg_dir + 'chr{chrom}_tmrca_summarized.tab', chrom=chromosomes)
 
 
