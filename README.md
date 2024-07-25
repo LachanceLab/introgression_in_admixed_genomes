@@ -35,7 +35,11 @@ The workflow can then be locally executed, using:<br>
 #### Precomputed result files
 Due to restriction from All of Us, we cannot make available the callset of introgressed segments on an individual level. However, we have uploaded files with calculated introgression and local ancestry frequencies in 50 kb windows. Note that all coordinates are relative to hg38:
 
-- `results/ibdmix_Vindija33.19/ibdmix_results_masked_denisovan_combined_50kb_4.0LOD_coverage_per_window50000_s_10000.bed`<br> The contains the number of introgressed base pairs per 50 kb across all individuals for all superpopulations (AFR, EUR, EAS(/NA), and AMR). The 4th column indicates the superpopulation and the 5th the number of introgressed base pairs across all individuals. To obtain frequencies divide the number of introgressed base pairs by the window size and the number of individuals in the respective superpopulation (i.e., AFR=1067, EUR=10503, EAS=567, and AMR=30780).
+- `results/ibdmix_Vindija33.19/ibdmix_results_masked_denisovan_combined_50kb_4.0LOD_unique_segment_counts.bed`<br> This file contains counts of unique Neanderthal introgressed haplotypes per population.
+
+- `results/ibdmix_Vindija33.19/ibdmix_results_masked_denisovan_combined_50kb_4.0LOD_unique_segment_counts.bed`<br> This file contains counts of unique Neanderthal introgressed haplotypes per population after applying the African mask.
+
+- `results/ibdmix_Vindija33.19/ibdmix_results_masked_denisovan_combined_50kb_4.0LOD_coverage_per_window50000_s_10000.bed`<br> This file contains the number of introgressed base pairs per 50 kb across all individuals for all superpopulations (AFR, EUR, EAS(/NA), and AMR). The 4th column indicates the superpopulation and the 5th the number of introgressed base pairs across all individuals. To obtain frequencies divide the number of introgressed base pairs by the window size and the number of individuals in the respective superpopulation (i.e., AFR=1067, EUR=10503, EAS=567, and AMR=30780).
 
 - `results/ibdmix_Vindija33.19/ibdmix_results_masked_denisovan_combined_50kb_4.0LOD_afr_masked_coverage_per_window50000_s_10000.bed`<br> Same as above but this time the number of introgressed base pairs is calculated after applying the African mask, i.e., removing any introgressed segment that overlaps with a segment in an African reference genome.
 
