@@ -169,7 +169,7 @@ rule download_archaic_genome_altai_old:
         "tabix {output.vcf}; "
         "wget -q -O - {params[urls][filter_bed]} | zegrep -w \"^{wildcards.chr}\" | gzip > {output.filter_bed}; "
 
-use rule lift_1kgp_from_hg19_to_hg38 as lift_archaic_genomes_from_hg19_to_hg38 with:
+rule lift_archaic_genomes_from_hg19_to_hg38:
     input:
         vcf = data_path + "archaic_genomes/{archaic_genome}/vcf/chr{chr}_mq25_mapab100_hg19.vcf.gz",
         tbi = data_path + "archaic_genomes/{archaic_genome}/vcf/chr{chr}_mq25_mapab100_hg19.vcf.gz.tbi",
@@ -178,6 +178,10 @@ use rule lift_1kgp_from_hg19_to_hg38 as lift_archaic_genomes_from_hg19_to_hg38 w
     output:
         vcf = temp(data_path + "archaic_genomes/{archaic_genome}/vcf/chr{chr}_mq25_mapab100.vcf"),
         unmapped = temp(data_path + "archaic_genomes/{archaic_genome}/vcf/chr{chr}_mq25_mapab100.vcf.unmap")
+    conda:
+        '../envs/crossmap.yaml'
+    shell:
+        "CrossMap.py vcf --chromid l {input.chain} {input.vcf} {input.reference} {output.vcf}"
 
 rule compress_and_index_archaic_genomes:
     input:
