@@ -881,8 +881,10 @@ def main(argv):
     nea_amr_freq = pd.read_csv(nea_amr, sep='\t', names=['chrom', 'start', 'end', 'freq'], usecols=[0, 1, 2, 4])
     nea_eur_freq = pd.read_csv(nea_eur, sep='\t', names=['chrom', 'start', 'end', 'freq'], usecols=[0, 1, 2, 4])
     nea_eas_freq = pd.read_csv(nea_eas, sep='\t', names=['chrom', 'start', 'end', 'freq'], usecols=[0, 1, 2, 4])
-    ibdmix = pd.read_csv(ibdmix_all, sep='\t', names=['chrom', 'start', 'end', "LOD", "IID", "pop", "super_pop"])
-    df_coverage = pd.read_csv(ibdmix_all_coverage, sep='\t', names=['chrom', 'start', 'end', 'iid', 'coverage'])
+    ibdmix = pd.read_csv(ibdmix_all, sep='\t', names=['chrom', 'start', 'end', "LOD", "IID", "pop", "super_pop"],
+                         engine='pyarrow')
+    df_coverage = pd.read_csv(ibdmix_all_coverage, sep='\t', names=['chrom', 'start', 'end', 'iid', 'coverage'],
+                              engine='pyarrow')
     df_coverage = df_coverage.join(ibdmix.loc[:, ['IID', 'super_pop']].drop_duplicates().set_index('IID'), on='iid')
     # in simulations we only have AA
     if not 'AMR' in ibdmix.super_pop.unique():
@@ -941,12 +943,12 @@ def main(argv):
     windows = pd.read_csv(args.windowed_genome_file, sep='\t', names=['chrom', 'start', 'end'])
     try:
         mask = pd.concat([pd.read_csv(args.mask_pattern.format(chrom=c_chrom), sep='\t',
-                                      names=['chrom', 'start', 'end'])
+                                      names=['chrom', 'start', 'end'], engine='pyarrow')
                           for c_chrom in range(1, 23)])
     # simulations only have 10 chromosomes
     except FileNotFoundError:
         mask = pd.concat([pd.read_csv(args.mask_pattern.format(chrom=c_chrom), sep='\t',
-                                      names=['chrom', 'start', 'end'])
+                                      names=['chrom', 'start', 'end'], engine='pyarrow')
                           for c_chrom in range(1, 11)])
     helpers.set_tempdir(args.tmp_dir)
     mask.chrom = [f'chr{chrom}' for chrom in mask.chrom]

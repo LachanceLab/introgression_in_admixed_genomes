@@ -991,7 +991,7 @@ use rule get_list_of_genes_overlapping_introgressed_segments as get_list_of_gene
         genes_to_ensembl=data_path + reference_path + knownToEnsembl_url.split('/')[-1].replace('.gz',''),
         genome_file=data_path + reference_path + 'genomefile_hg38.bed'
     output:
-        temp(results_path + "ibdmix_{archaic_genome}/{superpopulation}_foreground_list_of_genes_in_deserts.txt")
+        temp(results_path + "ibdmix_{archaic_genome}/AMR_foreground_list_of_genes_in_deserts.txt")
     params:
         bedtools=bedtools_path,
         aa_only = '',

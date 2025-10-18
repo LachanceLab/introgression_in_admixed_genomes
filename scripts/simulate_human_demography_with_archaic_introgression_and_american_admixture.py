@@ -6,9 +6,13 @@ import numpy as np
 import msprime
 import math
 import subprocess
+import os
+import pyslim
+import pandas as pd
+import tskit
 
 
-def run_simulations(samples, generation_time=25, mutation_rate=2.36e-8, simple=False):
+def run_simulations_neutral(samples, generation_time=25, mutation_rate=2.36e-8, simple=False):
     """
     Simulate simple human evolution with archaic admixture and an admixed American population
     :param samples: dict, target sample sizes
@@ -133,6 +137,80 @@ def run_simulations(samples, generation_time=25, mutation_rate=2.36e-8, simple=F
     return ts_chroms, masks
 
 
+def run_simulations_selection(samples, mean_s=0.001, replicate=0, output_dir="simulations_selection/", mutation_rate=2.36e-8):
+    species = stdpopsim.get_species("HomSap")
+    contigs = [species.get_contig(f'chr16', genetic_map='HapMapII_GRCh38')
+               for chrom in np.arange(1, 11)]
+    # this regions as very low recombination rates and leds to very long Neanderthal introgressed segments
+    masks = {f'chr{i}': [31000000, 47000000] for i, contig in enumerate(contigs, 1)}
+    # concatenate chromosomes
+    rates = contigs[0].recombination_map.rate
+    positions = np.concatenate([contigs[0].recombination_map.left,
+                                [contigs[0].recombination_map.right[-1]]])
+    for contig in contigs[1:]:
+        positions = np.concatenate([positions, contig.recombination_map.left + positions[-1] + 1,
+                                    [contig.recombination_map.right[-1] + 1 + positions[-1]]])
+        rates = np.concatenate([rates, [1/2], contig.recombination_map.rate])
+    # get nan intervals
+    rate_map = msprime.RateMap(position=positions, rate=rates)
+    nan_intervals = [[left, right] for left, right in zip(rate_map.left[np.isnan(rate_map.rate)],
+                                                          rate_map.right[np.isnan(rate_map.rate)])]
+    # fill in nans
+    rates_filled_nan = np.nan_to_num(rates, nan=0)
+    rate_map = msprime.RateMap(position=positions, rate=rates_filled_nan)
+    if not os.path.isfile(f'{output_dir}recombination_map.csv'):
+        slim_rate_map = pd.DataFrame([rate_map.right - 1, rate_map.rate]).T
+        slim_rate_map[0] = slim_rate_map[0].astype(int)
+
+        slim_rate_map.to_csv(f'{output_dir}recombination_map.csv', sep='\t', header=False, index=False)
+    slim_command = ["slim", "-d", f"L={int(rate_map.right[-1] - 1)}", "-d",
+                    f"recombination_map='{output_dir}recombination_map.csv'", "-d",
+                    f"outfile='{output_dir}mean_s{mean_s}_replicate{replicate}.trees'",
+                    "-d", f"mean_s={mean_s}", "-d",
+                    f"outfile_pre_admixture='simulations_selection/pre_admixture_replicate{replicate}.trees'",
+                    "scripts/simulate_human_demography_with_archaic_introgression_and_american_admixture_and_selection_WF.slim"]
+    subprocess.call(slim_command)
+    ots = tskit.load(f'{output_dir}mean_s{mean_s}_replicate{replicate}.trees')
+    # recapitate
+    rts = pyslim.recapitate(ots, ancestral_Ne=7310, recombination_rate=rate_map)
+    # simplify
+    sample_nodes = []
+    for sample in samples:
+        if sample.population == 'AFR':
+            target_pop = 1
+        elif sample.population == 'EUR':
+            target_pop = 2
+        elif sample.population == 'EAS':
+            target_pop = 3
+        elif sample.population == 'AMR':
+            target_pop = 4
+        elif sample.population == 'NEA':
+            target_pop = 5
+        elif sample.population == 'DEN':
+            target_pop = 6
+        individuals = np.random.choice(
+            [indv.id for indv in rts.individuals() if indv.metadata['subpopulation'] == target_pop],
+            sample.num_samples, replace=False)
+        c_nodes = np.concatenate([rts.individual(indv).nodes for indv in individuals])
+        sample_nodes.append(c_nodes)
+    sample_nodes = np.concatenate(sample_nodes)
+    rts = rts.simplify(sample_nodes)
+    # delete nan intervals
+    rts = rts.delete_intervals(nan_intervals, simplify=False)
+    # simulate_mutations
+    ts = msprime.sim_mutations(rts, rate=mutation_rate, keep=False)
+    # split chromosomes
+    ts_chroms = []
+    start = 0
+    for contig in contigs:
+        end = start + contig.recombination_map.right[-1]
+
+        chrom_ts = ts.keep_intervals([[start, end]], simplify=False).trim()
+        ts_chroms.append(chrom_ts)
+        start += contig.recombination_map.right[-1] + 1
+    return ts_chroms, masks
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_afr', type=int, help='Sample size for YRI (representative for African ancestry) [1067]',
@@ -162,8 +240,12 @@ def main(argv):
     parser.add_argument('--den', help='Sample ID of Denisovan individual. Must allow string formatting with chrom')
     parser.add_argument('-g', '--genomefile', help='Genome file name. Must allow string formatting with chrom')
     parser.add_argument('--masks', help='Masked regions of chromosome. Must allow string formatting with chrom.')
-    parser.add_argument('--simple', action='store_true', help='Whether to run full or simple demographic model.',
+    parser.add_argument('--simple', action='store_true', help='Whether to run full or simple demographic model. ' +
+                                                              'Has no effect when mean_s is set.',
                         default=False)
+    parser.add_argument('--mean_s', default=None, help='If set switch to SLiM model and simulated selection of ' +
+                                                       'Neanderthal ancestry in admixed individuals with provided ' +
+                                                       'mean selection coefficient.')
     args = parser.parse_args()
     sample_sizes = [msprime.SampleSet(num_samples=args.n_afr, population='AFR'),
                     msprime.SampleSet(num_samples=args.n_eur, population='EUR'),
@@ -171,7 +253,16 @@ def main(argv):
                     msprime.SampleSet(num_samples=min([63510, args.n_amr]), population='AMR'),
                     msprime.SampleSet(num_samples=1, population='NEA'),
                     msprime.SampleSet(num_samples=1, population='DEN')]
-    ts_chroms, masks = run_simulations(sample_sizes, simple=args.simple)
+    if args.mean_s is None:
+        ts_chroms, masks = run_simulations_neutral(sample_sizes, simple=args.simple)
+        pop_id_pop_mapping = {"afr": 0, "eur": 1, "eas": 2, "amr": 3, "nea": 5, "den": 6}
+    else:
+        output_dir = "/".join(args.trees.split('/')[:-1]) + "/"
+        replicate = args.trees.split('_replicate')[1].split(".")[0]
+        ts_chroms, masks = run_simulations_selection(sample_sizes, args.mean_s, replicate=replicate,
+                                                     output_dir=output_dir)
+        pop_id_pop_mapping = {"afr": 0, "eur": 1, "eas": 2, "amr": 3, "nea": 4, "den": 5}
+
     for chrom, ts in enumerate(ts_chroms, 1):
         ts.dump(args.trees.format(chrom=chrom))
         with open(args.masks.format(chrom=chrom), 'w') as mf:
@@ -182,18 +273,18 @@ def main(argv):
         with open(args.vcf.format(chrom=chrom), "w") as vcf_file:
             ts.write_vcf(vcf_file, contig_id=chrom)
         vcf_file.close()
-        subprocess.run(["bgzip",  args.vcf.format(chrom=chrom)])
+        subprocess.run(["bgzip", "-f",  args.vcf.format(chrom=chrom)])
         # generate eur ref panel only once --> to ensure consistence across chromosomes
         if chrom == 1:
             eur_ref_panel = np.random.choice([indv.id for indv in ts.individuals()
-                                              if ts.node(indv.nodes[0]).population == 1 and
+                                              if ts.node(indv.nodes[0]).population == pop_id_pop_mapping["eur"] and
                                               ts.node(indv.nodes[0]).time == 0],
                                              args.n_eur_ref, replace=False)
             afr_ref_panel = np.random.choice([indv.id for indv in ts.individuals()
-                                              if ts.node(indv.nodes[0]).population == 0 and
+                                              if ts.node(indv.nodes[0]).population == pop_id_pop_mapping["afr"] and
                                               ts.node(indv.nodes[0]).time == 0], args.n_afr_ref, replace=False)
             eas_ref_panel = np.random.choice([indv.id for indv in ts.individuals()
-                                              if ts.node(indv.nodes[0]).population == 2 and
+                                              if ts.node(indv.nodes[0]).population == pop_id_pop_mapping["eas"] and
                                               ts.node(indv.nodes[0]).time == 0], args.n_eas_ref, replace=False)
             aa_indvs = open(args.aa, 'w')
             afr_indvs = open(args.afr, 'w')
@@ -203,23 +294,23 @@ def main(argv):
             den_indv = open(args.den, 'w')
             ref_panel = open(args.ref, 'w')
             for indv in ts.individuals():
-                if ts.node(indv.nodes[0]).population == 0:
+                if ts.node(indv.nodes[0]).population == pop_id_pop_mapping["afr"]:
                     if indv.id in afr_ref_panel:
                         ref_panel.write(f'tsk_{indv.id}\tAFR\n')
                     afr_indvs.write(f'tsk_{indv.id}\n')
-                elif ts.node(indv.nodes[0]).population == 1:
+                elif ts.node(indv.nodes[0]).population == pop_id_pop_mapping["eur"]:
                     if indv.id in eur_ref_panel:
                         ref_panel.write(f'tsk_{indv.id}\tEUR\n')
                     eur_indvs.write(f'tsk_{indv.id}\n')
-                elif ts.node(indv.nodes[0]).population == 2:
+                elif ts.node(indv.nodes[0]).population == pop_id_pop_mapping["eas"]:
                     if indv.id in eas_ref_panel:
                         ref_panel.write(f'tsk_{indv.id}\tEAS\n')
                     eas_indvs.write(f'tsk_{indv.id}\n')
-                elif ts.node(indv.nodes[0]).population == 3:
+                elif ts.node(indv.nodes[0]).population == pop_id_pop_mapping["amr"]:
                     aa_indvs.write(f'tsk_{indv.id}\n')
-                elif ts.node(indv.nodes[0]).population == 5:
+                elif ts.node(indv.nodes[0]).population == pop_id_pop_mapping["nea"]:
                     nea_indv.write(f'tsk_{indv.id}\n')
-                elif ts.node(indv.nodes[0]).population == 6:
+                elif ts.node(indv.nodes[0]).population == pop_id_pop_mapping["den"]:
                     den_indv.write(f'tsk_{indv.id}\n')
             ref_panel.close()
             nea_indv.close()
